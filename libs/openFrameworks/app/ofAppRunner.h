@@ -54,7 +54,6 @@ int ofRunMainLoop();
 
 
 ofBaseApp * ofGetAppPtr();
-void ofSetAppPtr(shared_ptr<ofBaseApp> appPtr);
 
 void		ofExit(int status=0);
 
@@ -91,6 +90,7 @@ bool		ofDoesHWOrientation();
 ofPoint		ofGetWindowSize();
 ofRectangle	ofGetWindowRect();
 ofAppBaseWindow * ofGetWindowPtr();
+std::shared_ptr<ofAppBaseWindow> ofGetCurrentWindow();
 
 void 		ofSetWindowPosition(int x, int y);
 void 		ofSetWindowShape(int width, int height);

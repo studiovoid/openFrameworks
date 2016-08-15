@@ -123,6 +123,9 @@ public:
     int         getPixelScreenCoordScale();
 
     void 		makeCurrent();
+	void swapBuffers();
+	void startRender();
+	void finishRender();
 
 	static void listVideoModes();
 	static void listMonitors();
@@ -191,6 +194,7 @@ private:
 
 	bool			bEnableSetupScreen;
 	int				windowW, windowH;
+	int				currentW, currentH;
 
 	ofRectangle windowRect;
 
@@ -201,7 +205,7 @@ private:
 	bool			bWindowNeedsShowing;
 
 	GLFWwindow* 	windowP;
-    
+
 	int				getCurrentMonitor();
 
 	ofBaseApp *	ofAppPtr;
