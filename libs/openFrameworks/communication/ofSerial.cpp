@@ -341,7 +341,11 @@ bool ofSerial::setup(string portName, int baud){
 		break;
 		   case 230400:
 			cfsetispeed(&options, B230400);
-		cfsetospeed(&options, B230400);
+			cfsetospeed(&options, B230400);
+		break;
+			case 921600:
+			 cfsetispeed(&options, 921600);
+			 cfsetospeed(&options, 921600);
 		break;
 		   case 12000000: 
 			cfsetispeed(&options, 12000000);
