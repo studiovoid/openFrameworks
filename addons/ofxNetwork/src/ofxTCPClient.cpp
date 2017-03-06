@@ -144,16 +144,17 @@ bool ofxTCPClient::sendRawMsg(const char * msg, int size){
 	}
 	tmpBuffSend.append(msg,size);
 	tmpBuffSend.append(messageDelimiter.c_str(),messageDelimiter.size());
-
+	
     int ret = TCPClient.SendAll( tmpBuffSend.getData(), tmpBuffSend.size() );
     int errorCode = 0;
+	
     if(ret<0) errorCode = ofxNetworkCheckError();
 	if( isClosingCondition(ret, errorCode) ){
 		ofLogWarning("ofxTCPClient") << "sendRawMsg(): client disconnected";
 		close();
 		return false;
 	}else if(ret<0){
-		ofLogError("ofxTCPClient") << "sendRawMsg(): sending failed";
+		ofLogError("ofxTCPClient") << "sendRawMsg(): sending failed: " << errorCode;
 		return false;
 	}else if(ret<size){
 		// in case of partial send, store the
@@ -275,6 +276,7 @@ int ofxTCPClient::receiveRawMsg(char * receiveBuffer, int numBytes){
 	if(findDelimiter(tmpBuffReceive.getData(),tmpBuffReceive.size(),messageDelimiter)==-1){
 		memset(tmpBuff,  0, TCP_MAX_MSG_SIZE);
 		length = receiveRawBytes(tmpBuff, TCP_MAX_MSG_SIZE);
+		
 		if(length>0){ // don't copy the data if there was an error or disconnection
 			tmpBuffReceive.append(tmpBuff,length);
 		}

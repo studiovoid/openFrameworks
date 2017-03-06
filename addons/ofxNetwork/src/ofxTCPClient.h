@@ -12,7 +12,6 @@
 
 class ofxTCPClient{
 
-
 	public:
 
 		ofxTCPClient();
