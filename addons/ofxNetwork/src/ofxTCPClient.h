@@ -13,7 +13,6 @@
 
 class ofxTCPClient{
 
-
 	public:
 
 		ofxTCPClient();
