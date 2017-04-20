@@ -261,6 +261,8 @@ public:
 	vector<ofTTFCharacter> getStringAsPoints(const std::string& str, bool vflip=true, bool filled=true) const;
 	const ofMesh & getStringMesh(const std::string& s, float x, float y, bool vflip=true) const;
 	const ofTexture & getFontTexture() const;
+	
+	int getKerning(int c, int prevC) const;
 
 	/// \}
 	
@@ -292,7 +294,7 @@ protected:
 	int dpi;
 
 
-    int getKerning(int c, int prevC) const;
+	
 	void drawChar(int c, float x, float y, bool vFlipped) const;
 	void drawCharAsShape(int c, float x, float y, bool vFlipped, bool filled) const;
 	void createStringMesh(const std::string& s, float x, float y, bool vFlipped) const;
