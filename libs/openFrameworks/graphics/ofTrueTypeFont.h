@@ -350,9 +350,13 @@ public:
 	vector<ofTTFCharacter> getStringAsPoints(const std::string &  str, bool vflip=true, bool filled=true) const;
 	const ofMesh & getStringMesh(const std::string &  s, float x, float y, bool vflip=true) const;
 	const ofTexture & getFontTexture() const;
+	
 	ofTexture getStringTexture(const std::string &  s, bool vflip=true) const;
 	glm::vec2 getFirstGlyphPosForTexture(const std::string & str, bool vflip) const;
 	bool isValidGlyph(uint32_t) const;
+
+	int getKerning(uint32_t c, uint32_t prevC) const;
+
 	/// \}
 
 	void setDirection(ofTtfSettings::Direction direction);
@@ -397,8 +401,6 @@ protected:
 	ofTtfSettings settings;
 	unordered_map<uint32_t,size_t> glyphIndexMap;
 
-
-    int getKerning(uint32_t c, uint32_t prevC) const;
 	void drawChar(uint32_t c, float x, float y, bool vFlipped) const;
 	void drawCharAsShape(uint32_t c, float x, float y, bool vFlipped, bool filled) const;
 	void createStringMesh(const string & s, float x, float y, bool vFlipped) const;
