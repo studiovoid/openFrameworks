@@ -41,24 +41,29 @@ ofEasyCam::~ofEasyCam(){
 }
 
 //----------------------------------------
-void ofEasyCam::update(ofEventArgs & args){
+void ofEasyCam::update(){
 	viewport = getViewport(this->viewport);
 	if(!bDistanceSet && bAutoDistance){
 		setDistance(getImagePlaneDistance(viewport), true);
 	}
 	if(bMouseInputEnabled){
-
+		
 		rotationFactor = sensitivityRot * 180 / min(viewport.width, viewport.height);
-
+		
 		if(events->getMousePressed()) prevMouse = ofVec2f(events->getMouseX(),events->getMouseY());
-
+		
 		if (bDoRotate) {
 			updateRotation();
 		}else if (bDoTranslate || bDoScrollZoom) {
-			updateTranslation(); 
+			updateTranslation();
 			bDoScrollZoom = false;
 		}
 	}	
+}
+
+//----------------------------------------
+void ofEasyCam::update(ofEventArgs & args){
+	update();
 }
 
 //----------------------------------------

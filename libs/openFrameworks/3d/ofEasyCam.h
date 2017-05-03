@@ -116,6 +116,9 @@ public:
     /// \todo Rename to isMouseMiddleButtonEnabled().
     /// \returns true iff the mouse's middle button is enabled.
 	bool getMouseMiddleButtonEnabled();
+	
+	void update();
+	void update(ofEventArgs & args);
 
 	/// \}
 
@@ -159,7 +162,7 @@ private:
 	
 	void updateRotation();
 	void updateTranslation();
-	void update(ofEventArgs & args);
+	
 	void mousePressed(ofMouseEventArgs & mouse);
 	void mouseReleased(ofMouseEventArgs & mouse);
 	void mouseDragged(ofMouseEventArgs & mouse);
