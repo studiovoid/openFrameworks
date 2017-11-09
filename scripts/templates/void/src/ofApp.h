@@ -1,8 +1,16 @@
 #pragma once
 
 #include "ofMain.h"
+#include "ofxVoid/ui/DisplayObject.h"
+#include "ofxVoid/ui/Panel.h"
+#include "ofxVoid/ui/CellLayout.h"
+#include "ofxVoid/ui/Scene3d.h"
 
-class ofApp : public ofBaseApp{
+class ofApp : public ofBaseApp
+{
+	float _time;
+	float _timeStep;
+	float _internalTime;
 
 	public:
 		void setup();
@@ -21,5 +29,15 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 		void exit();
-		
+		void drawScene();
+	
+		void createUi();
+	
+	
+		shared_ptr<ofxVoid::ui::CellLayout> _hcell;
+		shared_ptr<ofxVoid::ui::Scene3d> _scene3d;
+		shared_ptr<ofxVoid::ui::DisplayObject> _stage;
+		shared_ptr<ofxVoid::ui::Panel> _panel;
+	
+	
 };
