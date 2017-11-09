@@ -352,9 +352,9 @@ bool ofSerial::setup(string portName, int baud){
 				cfsetospeed(&options, 921600);
 				break;
 		   default:
-			cfsetispeed(&options, B9600);
-		cfsetospeed(&options, B9600);
-		ofLogError("ofSerial") << "setup(): cannot set " << baud << " bps, setting to 9600";
+			cfsetispeed(&options, baud);
+			cfsetospeed(&options, baud);
+		ofLogError("ofSerial") << "setup(): cannot set standard baud setting to " << baud << endl;
 		break;
 		}
 
