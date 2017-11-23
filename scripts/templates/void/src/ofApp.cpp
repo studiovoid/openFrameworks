@@ -24,18 +24,16 @@ void ofApp::createUi()
 	_stage->disableAutoDraw();
 	
 	_panel = ui::Panel::create(ofRectangle(0, 0, 300 * ui::scale, 500 * ui::scale));
+	auto fps = ui::FpsLabel::create();
 	
 	_hcell = ui::CellLayout::create(false);
-	_stage->addChild(_hcell);
-	
-	_hcell->addComponent(_panel, ui::ResizeRule(ui::RESIZE_RULE_TYPE_STATIC, 200.0f * ui::scale));
-	
 	_scene3d = ui::Scene3d::create();
 	_scene3d->implementDraw(bind(&ofApp::drawScene, this));
-	_hcell->addComponent(_scene3d);
 	
-	auto fps = ui::FpsLabel::create();
-	_panel->addComponent(fps);
+	_stage->addChild(_hcell);
+		_hcell->addComponent(_panel, ui::ResizeRule(ui::RESIZE_RULE_TYPE_STATIC, 200.0f * ui::scale));
+			_panel->addComponent(fps);
+		_hcell->addComponent(_scene3d);
 }
 
 void ofApp::update()

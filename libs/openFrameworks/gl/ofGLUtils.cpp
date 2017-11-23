@@ -304,6 +304,7 @@ ofImageType ofGetImageTypeFromGLType(int glType){
 	case GL_DEPTH_COMPONENT16:
 	case GL_DEPTH_COMPONENT24:
 	case GL_DEPTH_COMPONENT:
+	case GL_RED:
 #endif
 		return OF_IMAGE_GRAYSCALE;
 
