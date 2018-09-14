@@ -120,9 +120,14 @@ PLATFORM_CFLAGS += -pipe
 ################################################################################
 
 # raspberry pi specific
-PLATFORM_LIBRARIES += GLESv2
-PLATFORM_LIBRARIES += GLESv1_CM
-PLATFORM_LIBRARIES += EGL
+ifneq (,$(wildcard $(RPI_ROOT)/opt/vc/lib/libGLESv2.so))
+	PLATFORM_LIBRARIES += GLESv2
+	PLATFORM_LIBRARIES += GLESv1_CM
+	PLATFORM_LIBRARIES += EGL
+else
+	PLATFORM_LIBRARIES += brcmGLESv2
+	PLATFORM_LIBRARIES += brcmEGL
+endif
 PLATFORM_LIBRARIES += openmaxil
 PLATFORM_LIBRARIES += bcm_host
 PLATFORM_LIBRARIES += vcos
@@ -198,7 +203,7 @@ $(info detected cross compiling $(CROSS_COMPILING))
 		GCC_PREFIX = arm-linux-gnueabihf
 	endif
 
-    PLATFORM_CXX = $(TOOLCHAIN_ROOT)/bin/$(GCC_PREFIX)-g++
+	PLATFORM_CXX = $(TOOLCHAIN_ROOT)/bin/$(GCC_PREFIX)-g++
 	PLATFORM_CC = $(TOOLCHAIN_ROOT)/bin/$(GCC_PREFIX)-gcc
 	PLATFORM_AR = $(TOOLCHAIN_ROOT)/bin/$(GCC_PREFIX)-ar
 	PLATFORM_LD = $(TOOLCHAIN_ROOT)/bin/$(GCC_PREFIX)-ld

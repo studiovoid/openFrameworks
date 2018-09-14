@@ -15,16 +15,16 @@
 #include <algorithm>
 #include <numeric>
 
-#include "ofUtils.h"
 #include "ofGraphics.h"
-#include "ofAppRunner.h"
 #include "utf8.h"
-#include "ofVectorMath.h"
 
+using namespace std;
 
 const ofUnicode::range ofUnicode::Space {32, 32};
+const ofUnicode::range ofUnicode::IdeographicSpace {0x3000, 0x3000};
 const ofUnicode::range ofUnicode::Latin {32, 0x007F};
 const ofUnicode::range ofUnicode::Latin1Supplement {32,0x00FF};
+const ofUnicode::range ofUnicode::LatinA {0x0100,0x017F};
 const ofUnicode::range ofUnicode::Greek {0x0370, 0x03FF};
 const ofUnicode::range ofUnicode::Cyrillic {0x0400, 0x04FF};
 const ofUnicode::range ofUnicode::Arabic {0x0600, 0x077F};
@@ -66,20 +66,28 @@ const ofUnicode::range ofUnicode::KanaSupplement {0x1B000, 0x1B0FF};
 const ofUnicode::range ofUnicode::RumiNumericalSymbols {0x10E60, 0x10E7F};
 const ofUnicode::range ofUnicode::ArabicMath {0x1EE00, 0x1EEFF};
 const ofUnicode::range ofUnicode::MiscSymbolsAndPictographs {0x1F300, 0x1F5FF};
-const ofUnicode::range ofUnicode::Emoticons {0x1F600, 0x1F64F};
+const ofUnicode::range ofUnicode::Emoticons {0x1F601, 0x1F64F};
 const ofUnicode::range ofUnicode::TransportAndMap {0x1F680, 0x1F6FF};
+const ofUnicode::range ofUnicode::EnclosedCharacters {0x24C2, 0x1F251};
+const ofUnicode::range ofUnicode::Uncategorized {0x00A9, 0x1F5FF};
+const ofUnicode::range ofUnicode::AdditionalEmoticons {0x1F600, 0x1F636};
+const ofUnicode::range ofUnicode::AdditionalTransportAndMap {0x1F681, 0x1F6C5};
+const ofUnicode::range ofUnicode::OtherAdditionalSymbols {0x1F30D, 0x1F567};
 
 const std::initializer_list<ofUnicode::range> ofAlphabet::Emoji {
 	ofUnicode::Space,
-	ofUnicode::Hiragana,
-	ofUnicode::Katakana,
-	ofUnicode::KatakanaPhoneticExtensions,
-	ofUnicode::CJKLettersAndMonths,
-	ofUnicode::CJKUnified
+	ofUnicode::Emoticons,
+	ofUnicode::Dingbats,
+	ofUnicode::Uncategorized,
+	ofUnicode::TransportAndMap,
+	ofUnicode::EnclosedCharacters,
+	ofUnicode::OtherAdditionalSymbols,
+
 };
 
 const std::initializer_list<ofUnicode::range> ofAlphabet::Japanese {
 	ofUnicode::Space,
+	ofUnicode::IdeographicSpace,
 	ofUnicode::Hiragana,
 	ofUnicode::Katakana,
 	ofUnicode::KatakanaPhoneticExtensions,
@@ -89,12 +97,14 @@ const std::initializer_list<ofUnicode::range> ofAlphabet::Japanese {
 
 const std::initializer_list<ofUnicode::range> ofAlphabet::Chinese {
 	ofUnicode::Space,
+	ofUnicode::IdeographicSpace,
 	ofUnicode::CJKLettersAndMonths,
 	ofUnicode::CJKUnified
 };
 
 const std::initializer_list<ofUnicode::range> ofAlphabet::Korean {
 	ofUnicode::Space,
+	ofUnicode::IdeographicSpace,
 	ofUnicode::HangulJamo,
 	ofUnicode::HangulCompatJamo,
 	ofUnicode::HangulExtendedA,
@@ -119,7 +129,9 @@ const std::initializer_list<ofUnicode::range> ofAlphabet::Devanagari {
 
 const std::initializer_list<ofUnicode::range> ofAlphabet::Latin {
 	ofUnicode::Latin1Supplement,
-	ofUnicode::LatinExtendedAdditional
+	ofUnicode::LatinExtendedAdditional,
+	ofUnicode::Latin,
+	ofUnicode::LatinA,
 };
 
 const std::initializer_list<ofUnicode::range> ofAlphabet::Greek {
@@ -145,6 +157,8 @@ const ofTrueTypeFont::glyphProps ofTrueTypeFont::invalidProps{
 	0.0f,0.0f,0.0f,0.0f
 };
 
+const size_t TAB_WIDTH = 4; /// Number of spaces per tab
+
 static bool printVectorInfo = false;
 static int ttfGlobalDpi = 96;
 static bool librariesInitialized = false;
@@ -160,7 +174,7 @@ void ofTrueTypeShutdown(){
 }
 
 //--------------------------------------------------------
-static ofTTFCharacter makeContoursForCharacter(FT_Face face){
+static ofPath makeContoursForCharacter(FT_Face face){
 
 		//int num			= face->glyph->outline.n_points;
 		int nContours	= face->glyph->outline.n_contours;
@@ -169,7 +183,7 @@ static ofTTFCharacter makeContoursForCharacter(FT_Face face){
 		char * tags		= face->glyph->outline.tags;
 		FT_Vector * vec = face->glyph->outline.points;
 
-		ofTTFCharacter charOutlines;
+		ofPath charOutlines;
 		charOutlines.setUseShapeColor(false);
 		charOutlines.setPolyWindingMode(OF_POLY_WINDING_NONZERO);
 
@@ -442,8 +456,9 @@ static std::string linuxFontPathByName(const std::string& fontname){
 #endif
 
 //-----------------------------------------------------------
-static bool loadFontFace(std::filesystem::path fontname, FT_Face & face, std::filesystem::path & filename){
-	filename = ofToDataPath(fontname,true);
+static bool loadFontFace(const std::filesystem::path& _fontname, FT_Face & face, std::filesystem::path & filename){
+	std::filesystem::path fontname = _fontname;
+	filename = ofToDataPath(_fontname,true);
 	ofFile fontFile(filename,ofFile::Reference);
 	int fontID = 0;
 	if(!fontFile.exists()){
@@ -452,7 +467,11 @@ static bool loadFontFace(std::filesystem::path fontname, FT_Face & face, std::fi
 #elif defined(TARGET_OSX)
 		if(fontname==OF_TTF_SANS){
 			fontname = "Helvetica Neue";
-			fontID = 4;
+			#if MAC_OS_X_VERSION_10_13 && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_13
+				fontID = 0;
+			#else
+				fontID = 4;
+			#endif
 		}else if(fontname==OF_TTF_SERIF){
 			fontname = "Times New Roman";
 		}else if(fontname==OF_TTF_MONO){
@@ -527,7 +546,7 @@ bool ofTrueTypeFont::initLibraries(){
 ofTrueTypeFont::ofTrueTypeFont()
 :settings("",0){
 	bLoadedOk		= false;
-	letterSpacing = 1;
+	letterSpacing = 0;
 	spaceSize = 1;
 	fontUnitScale = 1;
 	stringQuads.setMode(OF_PRIMITIVE_TRIANGLES);
@@ -760,8 +779,8 @@ ofTrueTypeFont::glyph ofTrueTypeFont::loadGlyph(uint32_t utf8) const{
 }
 
 //-----------------------------------------------------------
-bool ofTrueTypeFont::load(std::filesystem::path filename, int fontSize, bool antialiased, bool fullCharacterSet, bool makeContours, float simplifyAmt, int dpi) {
-	ofTtfSettings settings(filename,fontSize);
+bool ofTrueTypeFont::load(const std::filesystem::path& filename, int fontSize, bool antialiased, bool fullCharacterSet, bool makeContours, float simplifyAmt, int dpi) {
+	ofTrueTypeFontSettings settings(filename,fontSize);
 	settings.antialiased = antialiased;
 	settings.contours = makeContours;
 	settings.simplifyAmt = simplifyAmt;
@@ -774,7 +793,7 @@ bool ofTrueTypeFont::load(std::filesystem::path filename, int fontSize, bool ant
 	return load(settings);
 }
 
-bool ofTrueTypeFont::load(const ofTtfSettings & _settings){
+bool ofTrueTypeFont::load(const ofTrueTypeFontSettings & _settings){
 	#if defined(TARGET_ANDROID)
 	ofAddListener(ofxAndroidEvents().unloadGL,this,&ofTrueTypeFont::unloadTextures);
 	ofAddListener(ofxAndroidEvents().reloadGL,this,&ofTrueTypeFont::reloadTextures);
@@ -843,7 +862,7 @@ bool ofTrueTypeFont::load(const ofTtfSettings & _settings){
 			if(settings.contours){
 				if(printVectorInfo){
 					std::string str;
-					ofAppendUTF8(str,g);
+					ofUTF8Append(str,g);
 					ofLogNotice("ofTrueTypeFont") <<  "character " << str;
 				}
 
@@ -936,17 +955,25 @@ bool ofTrueTypeFont::load(const ofTtfSettings & _settings){
 		charPixels.pasteInto(atlasPixelsLuminanceAlpha,x+border,y+border);
 		x+= glyph.tW + border*2;
 	}
-	texAtlas.allocate(atlasPixelsLuminanceAlpha,false);
-	texAtlas.setRGToRGBASwizzles(true);
 
-	if(settings.antialiased && settings.fontSize>20){
-		texAtlas.setTextureMinMagFilter(GL_LINEAR,GL_LINEAR);
+	int maxSize;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxSize);
+	if(w > maxSize || h > maxSize){
+		ofLogError("ofTruetypeFont") << "Trying to allocate texture of " << w << "x" << h << " which is bigger than supported in current platform: " << maxSize;
+		return false;
 	}else{
-		texAtlas.setTextureMinMagFilter(GL_NEAREST,GL_NEAREST);
+		texAtlas.allocate(atlasPixelsLuminanceAlpha,false);
+		texAtlas.setRGToRGBASwizzles(true);
+
+		if(settings.antialiased && settings.fontSize>20){
+			texAtlas.setTextureMinMagFilter(GL_LINEAR,GL_LINEAR);
+		}else{
+			texAtlas.setTextureMinMagFilter(GL_NEAREST,GL_NEAREST);
+		}
+		texAtlas.loadData(atlasPixelsLuminanceAlpha);
+		bLoadedOk = true;
+		return true;
 	}
-	texAtlas.loadData(atlasPixelsLuminanceAlpha);
-	bLoadedOk = true;
-	return true;
 }
 
 //-----------------------------------------------------------
@@ -1015,13 +1042,13 @@ float ofTrueTypeFont::getSpaceSize() const{
 }
 
 //------------------------------------------------------------------
-ofTTFCharacter ofTrueTypeFont::getCharacterAsPoints(uint32_t character, bool vflip, bool filled) const{
+ofPath ofTrueTypeFont::getCharacterAsPoints(uint32_t character, bool vflip, bool filled) const{
 	if( settings.contours == false ){
 		ofLogError("ofxTrueTypeFont") << "getCharacterAsPoints(): contours not created, call loadFont() with makeContours set to true";
-		return ofTTFCharacter();
+		return ofPath();
 	}
 	if (!isValidGlyph(character)){
-		return ofTTFCharacter();
+		return ofPath();
 	}
 
 	if(vflip){
@@ -1111,7 +1138,7 @@ void ofTrueTypeFont::iterateString(const string & str, float x, float y, bool vF
 		newLineDirection = -1;
 	}
 
-	int directionX = settings.direction == ofTtfSettings::LeftToRight?1:-1;
+	int directionX = settings.direction == OF_TTF_LEFT_TO_RIGHT?1:-1;
 
 	uint32_t prevC = 0;
 	for(auto c: ofUTF8Iterator(str)){
@@ -1121,21 +1148,27 @@ void ofTrueTypeFont::iterateString(const string & str, float x, float y, bool vF
 				pos.x = x ; //reset X Pos back to zero
 				prevC = 0;
 			} else if (c == '\t') {
-				pos.x += getGlyphProperties(' ').advance * letterSpacing * 4 * directionX;
-				prevC = c;
-			} else if (c == ' ') {
-				pos.x += getGlyphProperties(' ').advance * letterSpacing * directionX * spaceSize;
+				if (settings.direction == OF_TTF_LEFT_TO_RIGHT){
+					f(c, pos);
+					pos.x += getGlyphProperties(' ').advance * TAB_WIDTH;
+					pos.x += letterSpacing  * directionX;
+				} else{
+					pos.x += getGlyphProperties(' ').advance * TAB_WIDTH * letterSpacing  * directionX;
+					f(c, pos);
+				}
 				prevC = c;
 			} else if(isValidGlyph(c)) {
 				const auto & props = getGlyphProperties(c);
 				if(prevC>0){
 					pos.x += getKerning(c,prevC);// * directionX;
 				}
-				if(settings.direction == ofTtfSettings::LeftToRight){
-				    f(c,pos);
-				    pos.x += props.advance * letterSpacing * directionX;
+				if(settings.direction == OF_TTF_LEFT_TO_RIGHT){
+					f(c,pos);
+					pos.x += props.advance  * directionX;
+					pos.x += letterSpacing  * directionX;
 				}else{
-				    pos.x += props.advance * letterSpacing * directionX;
+					pos.x += props.advance  * directionX;
+					pos.x += letterSpacing  * directionX;
 				    f(c,pos);
 				}
 				prevC = c;
@@ -1147,13 +1180,13 @@ void ofTrueTypeFont::iterateString(const string & str, float x, float y, bool vF
 }
 
 //-----------------------------------------------------------
-void ofTrueTypeFont::setDirection(ofTtfSettings::Direction direction){
+void ofTrueTypeFont::setDirection(ofTrueTypeFontDirection direction){
 	settings.direction = direction;
 }
 
 //-----------------------------------------------------------
-vector<ofTTFCharacter> ofTrueTypeFont::getStringAsPoints(const string &  str, bool vflip, bool filled) const{
-	vector<ofTTFCharacter> shapes;
+vector<ofPath> ofTrueTypeFont::getStringAsPoints(const string &  str, bool vflip, bool filled) const{
+	vector<ofPath> shapes;
 
 	if (!bLoadedOk){
 		ofLogError("ofxTrueTypeFont") << "getStringAsPoints(): font not allocated: line " << __LINE__ << " in " << __FILE__;
@@ -1212,23 +1245,43 @@ float ofTrueTypeFont::stringWidth(const std::string& c) const{
 
 //-----------------------------------------------------------
 ofRectangle ofTrueTypeFont::getStringBoundingBox(const std::string& c, float x, float y, bool vflip) const{
-	ofMesh mesh = getStringMesh(c,x,y,vflip);
 
-	if(mesh.getNumVertices() == 0)
-	    return ofRectangle(x,y,0,0);
+	if ( c.empty() ){
+		return ofRectangle( x, y, 0.f, 0.f);
+	}
 
-	float minX = std::numeric_limits<float>::max();
-	float minY = std::numeric_limits<float>::max();
+	float minX =  std::numeric_limits<float>::max();
+	float minY =  std::numeric_limits<float>::max();
 	float maxX = -std::numeric_limits<float>::max();
 	float maxY = -std::numeric_limits<float>::max();
-	for(const auto & v: mesh.getVertices()){
-		minX = min(v.x,minX);
-		minY = min(v.y,minY);
-		maxX = max(v.x,maxX);
-		maxY = max(v.y,maxY);
-	}
+
+	// Calculate bounding box by iterating over glyph properties
+	// Meaning of props can be deduced from illustration at top of:
+	// https://www.freetype.org/freetype2/docs/tutorial/step2.html
+	// 
+	// We deliberately not generate a mesh and iterate over its
+	// vertices, as this would not correctly return spacing for
+	// blank characters.
+
+	iterateString( c, x, y, vflip, [&]( uint32_t c, glm::vec2 pos ){
+		auto  props = getGlyphProperties( c );
+		if ( c == '\t' ){
+			props.advance = getGlyphProperties( ' ' ).advance * letterSpacing * TAB_WIDTH;
+		}
+		maxX = max( maxX, pos.x + props.advance * letterSpacing );
+		minX = min( minX, pos.x );
+		if ( vflip ){
+			minY = min( minY, pos.y - ( props.ymax - props.ymin ) );
+			maxY = max( maxY, pos.y - ( props.bearingY - props.height ) );
+		} else{
+			minY = min( minY, pos.y - ( props.ymax) );
+			maxY = max( maxY, pos.y - ( props.ymin ) );
+		}
+	} );
+
 	float width = maxX - minX;
 	float height = maxY - minY;
+
 	return ofRectangle(minX, minY, width, height);
 }
 
@@ -1262,7 +1315,7 @@ glm::vec2 ofTrueTypeFont::getFirstGlyphPosForTexture(const std::string & str, bo
 	if(!str.empty()){
 		try{
 			auto c = *ofUTF8Iterator(str).begin();
-			if(settings.direction == ofTtfSettings::LeftToRight){
+			if(settings.direction == OF_TTF_LEFT_TO_RIGHT){
 				if (c != '\n') {
 					auto g = loadGlyph(c);
 					return {-float(g.props.xmin), getLineHeight() + g.props.ymin + getDescenderHeight()};
@@ -1328,7 +1381,7 @@ ofTexture ofTrueTypeFont::getStringTexture(const std::string& str, bool vflip) c
 	totalPixels.set(1,0);
 	size_t i = 0;
 	for(auto & g: glyphs){
-		if(settings.direction == ofTtfSettings::LeftToRight){
+		if(settings.direction == OF_TTF_LEFT_TO_RIGHT){
 			g.pixels.blendInto(totalPixels, glyphPositions[i].x, glyphPositions[i].y + getLineHeight() + g.props.ymin + getDescenderHeight() );
 		}else{
 			g.pixels.blendInto(totalPixels, width-glyphPositions[i].x, glyphPositions[i].y + getLineHeight() + g.props.ymin + getDescenderHeight() );

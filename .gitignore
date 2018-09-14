@@ -34,6 +34,7 @@ apps/*
 [Bb]uild/
 [Oo]bj/
 *.o
+/projectGenerator-osx/*
 examples/**/[Dd]ebug*/
 examples/**/[Rr]elease*/
 examples/**/gcc-debug/

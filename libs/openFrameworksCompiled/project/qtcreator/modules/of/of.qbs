@@ -7,7 +7,7 @@ import qbs.Probes
 import "helpers.js" as Helpers
 
 Module{
-    name: "ofCore"
+    name: "of"
 
     property string ofRoot: {
         if(FileInfo.isAbsolutePath(project.of_root)){
@@ -21,19 +21,29 @@ Module{
         if(qbs.targetOS.contains("android")){
             return "android";
         }else if(qbs.targetOS.contains("linux")){
-            if(qbs.architecture==="x86_64"){
+            // For now, we hard-code linux64 as our architecture of choice, since
+            // qbs doesn't appear to set the architecture property autimatically
+            // anymore starting with qt 4.4.
+            //
+            // If you wanted to compile for 386, uncomment these lines, and
+            // add this property in Build Settings: "qbs.architecture:x86"
+            //
+//            if(qbs.architecture==="x86_64"){
                 return "linux64";
-            }else if(qbs.architecture==="x86"){
-                return "linux";
-            }else{
-                throw(qbs.architecture + " not supported yet on " + qbs.targetOS);
-            }
+//            }else if(qbs.architecture==="x86"){
+//                return "linux";
+//            }else{
+//                throw("qbs error: Target architecture: '" + qbs.architecture + "' not supported yet on target OS: '" + qbs.targetOS + "'" +
+//                      "Check if the project's build settings ");
+//            }
         }else if(qbs.targetOS.contains("windows")){
             return "msys2";
         }else if(qbs.targetOS.contains("osx")){
             return "osx";
+        }else if(qbs.targetOS.contains("macos")){
+            return "osx";
         }else{
-            throw(qbs.targetOS + " not supported yet");
+            throw("Target architecture: '" + qbs.targetOS + "' not supported yet");
         }
     }
 
@@ -53,7 +63,17 @@ Module{
         property stringList ldflags
         property stringList system_libs
         property stringList static_libs
+        property string platform: parent.platform;
+        property string ofRoot: parent.ofRoot;
+        property stringList pkgConfigs: parent.pkgConfigs
         configure: {
+            includes = [];
+            cflags = [];
+            ldflags = [];
+            system_libs = [];
+            static_libs = [];
+
+            // pkgconfig packages
             var configs = [];
             if(platform === "linux"  || platform === "linux64"){
                 var pkgs = [
@@ -109,6 +129,7 @@ Module{
                 configs = pkgs;
             }
 
+            // library exceptions
             var libsexceptions = [];
             if(platform === "linux"  || platform === "linux64"){
                 libsexceptions = [
@@ -156,6 +177,7 @@ Module{
                 ];
             }
 
+            // parse include search paths from core libraries
             var coreincludes = Helpers.listDirsRecursive(ofRoot + "/libs/openFrameworks");
             var corelibs = Helpers.listDir(ofRoot + '/libs/');
             for(var lib in corelibs){
@@ -166,29 +188,35 @@ Module{
                     coreincludes = coreincludes.concat(include_paths);
                 }
             }
+            includes = coreincludes;
 
+            // add search paths from pkgconfigs;
             if(platform === "linux"  || platform === "linux64" || platform === "msys2"){
-                includes = coreincludes.concat(Helpers.pkgconfig(configs, ["--cflags-only-I"]).map(function(element){
+                includes = includes.concat(Helpers.pkgconfig(configs, ["--cflags-only-I"]).map(function(element){
                     return element.substr(2).trim()
                 }));
             }
 
+            // cflags from pkgconfigs
             if(platform === "linux"  || platform === "linux64" || platform === "msys2"){
                 cflags = Helpers.pkgconfig(configs, ["--cflags-only-other"]);
             }else{
                 cflags = [];
             }
 
+            // ldflags from pkgconfigs
             if(platform === "linux"  || platform === "linux64" || platform === "msys2"){
                 ldflags = Helpers.pkgconfig(configs, ["--libs-only-L"]);
                 if(platform === "msys2"){
                     ldflags.push("-L"+FileInfo.joinPaths(Helpers.msys2root(),"mingw32/lib"));
-                    //ldflags.push("-fuse-ld=gold");
+                }else{
+                    ldflags.push("-fuse-ld=gold");
                 }
             }else{
                 ldflags = [];
             }
 
+            // libraries from pkgconfigs
             if(platform === "linux"  || platform === "linux64" || platform === "msys2"){
                 var pkgconfiglibs = Helpers.pkgconfig(configs, ["--libs-only-l"]);
                 system_libs = pkgconfiglibs.map(function(lib){
@@ -198,6 +226,7 @@ Module{
                 system_libs = [];
             }
 
+            // add static libraries from core directories
             static_libs = Helpers.findLibsRecursive(ofRoot + "/libs", platform, libsexceptions);
 
             found = true;
@@ -206,7 +235,11 @@ Module{
 
     Probe {
         id: ADDITIONAL_LIBS
+        property bool useStdFs: project.useStdFs
         property stringList libs
+        property string platform: parent.platform
+        property string compilerName: cpp.compilerName
+        property int compilerVersionMajor: cpp.compilerVersionMajor
         configure: {
             if(platform === "linux"  || platform === "linux64"){
                 var libslist = [
@@ -220,14 +253,21 @@ Module{
                     "dl",
                     "pthread",
                     "freeimage",
-                    "boost_filesystem",
-                    "boost_system",
                     "pugixml",
                 ];
 
                 if(!Helpers.pkgExists("rtaudio")){
                     libslist.push("rtaudio");
                 }
+
+                if(useStdFs && compilerName=='g++' && compilerVersionMajor>=6){
+                    libslist.push('stdc++fs');
+                }else{
+                    libslist.push("boost_filesystem");
+                    libslist.push("boost_system");
+                }
+//                libslist.push("boost_filesystem");
+//                libslist.push("boost_system");
 
                 libs = libslist;
             }else if(platform === "msys2"){
@@ -249,7 +289,7 @@ Module{
     }
 
     Probe{
-        condition: !isCoreLibrary
+        condition: !of.isCoreLibrary
         id: ADDONS
         property stringList includes
         property pathList sources
@@ -258,6 +298,12 @@ Module{
         property stringList frameworks
         property stringList cflags
         property stringList ldflags
+        property stringList defines;
+        property bool isCoreLibrary: parent.isCoreLibrary
+        property stringList addons: parent.addons
+        property string sourceDirectory: parent.sourceDirectory
+        property string ofRoot: parent.ofRoot;
+        property string platform: parent.platform;
 
         configure: {
             includes = [];
@@ -267,6 +313,7 @@ Module{
             frameworks = [];
             cflags = [];
             ldflags = [];
+            defines = [];
 
             if(isCoreLibrary){
                 found = false;
@@ -281,10 +328,10 @@ Module{
                     var addonsmake = new TextFile(sourceDirectory + "/addons.make");
                     while(!addonsmake.atEof()){
                         var line = addonsmake.readLine().trim();
-                        allAddons.push(line);
-                        var addonPath = ofRoot + '/addons/' + line;
-                        var dependencies = Helpers.parseAddonConfig(addonPath, "ADDON_DEPENDENCIES", [], platform);
-                        allAddons = allAddons.concat(dependencies);
+                        if(line){
+                            allAddons.push(line);
+//                            var addonPath = ofRoot + '/addons/' + line;
+                        }
                     }
                 }catch(e){}
             }else{
@@ -297,7 +344,51 @@ Module{
             }
 
             // map addons list to addons paths
+            var addonsPaths = Helpers.removeDuplicates(allAddons.map(function(addon){
+                var addonPath = Helpers.normalize(FileInfo.joinPaths(sourceDirectory, addon))
+                if(File.exists(addonPath)){
+                    return addonPath;
+                }else{
+                    return Helpers.normalize(FileInfo.joinPaths(ofRoot, '/addons/', addon));
+                }
+            }));
+
+            // Look for dependencies
+            Object.defineProperties(Array.prototype, {
+                'flatMap': {
+                    value: function (lambda) {
+                        return Array.prototype.concat.apply([], this.map(lambda));
+                    },
+                    writeable: false,
+                    enumerable: false
+                }
+            });
+            var dependencies = addonsPaths.flatMap(function(addonPath){
+                var dependencies = Helpers.parseAddonConfig(addonPath, "ADDON_DEPENDENCIES", [], platform);
+                if(addonPath.startsWith(ofRoot + "/addons")){
+                    return dependencies;
+                }else{
+                    // If it's a local addon try to find dependencies in the same folder
+                    var parentAddonFolder = FileInfo.path(addonPath);
+                    return dependencies.map(function(dependency){
+                        var local = FileInfo.joinPaths(parentAddonFolder, dependency);
+                        if(File.exists(local)){
+                            return local;
+                        }else{
+                            return dependency;
+                        }
+                    })
+                }
+            });
+
+            allAddons = allAddons.concat(dependencies);
+
+            // Finally map all addons and dependencies to paths
             allAddons = Helpers.removeDuplicates(allAddons.map(function(addon){
+                if(FileInfo.isAbsolutePath(addon) && File.exists(addon)){
+                    return addon;
+                }
+
                 var addonPath = Helpers.normalize(FileInfo.joinPaths(sourceDirectory, addon))
                 if(File.exists(addonPath)){
                     return addonPath;
@@ -416,6 +507,12 @@ Module{
                 pkgconfigs = pkgconfigs.concat(Helpers.parseAddonConfig(addonPath, "ADDON_PKG_CONFIG_LIBRARIES", [], platform))
             }
 
+            // addon defines
+            for(var addon in allAddons){
+                var addonPath = allAddons[addon];
+                defines = defines.concat(Helpers.parseAddonConfig(addonPath, "ADDON_DEFINES", [], platform))
+            }
+
             // pkg includes
             includes = includes.concat(Helpers.pkgconfig(pkgconfigs, ["--cflags-only-I"]).map(function(element){
                 return element.substr(2).trim()
@@ -444,18 +541,29 @@ Module{
         property stringList ADDONS_SOURCES: ADDONS.sources
     }
 
+    Properties{
+        condition: !of.isCoreLibrary
+        property stringList ADDONS_DEFINES: ADDONS.defines
+    }
+
     Probe{
         id: DEFINES_LINUX
         property stringList list
+        property bool useStdFs: project.useStdFs
+        property string compilerName: cpp.compilerName
+        property int compilerVersionMajor: cpp.compilerVersionMajor
         configure:{
             list = ['GCC_HAS_REGEX'];
             if(Helpers.pkgExists("gtk+-3.0")){
-                list.push("OF_USING_GTK")
+                list.push("OF_USING_GTK=1")
             }
             if(Helpers.pkgExists("libmpg123")){
-                list.push("OF_USING_MPG123");
+                list.push("OF_USING_MPG123=1");
             }
-            found = true
+            if(useStdFs && compilerName=='g++' && compilerVersionMajor>=6){
+                list.push('OF_USING_STD_FS=1');
+            }
+            found = true;
         }
     }
     Properties{
@@ -480,8 +588,8 @@ Module{
 
     //cpp.cxxLanguageVersion: "c++14"
 
-    coreWarningLevel: 'default'
-    coreCFlags: {
+    property string coreWarningLevel: 'default'
+    property stringList coreCFlags: {
         var flags = CORE.cflags
             .concat(['-Wno-unused-parameter','-Werror=return-type'])
             .concat(cFlags);
@@ -553,6 +661,8 @@ Module{
                 'IOKit',
                 'OpenGL',
                 'QuartzCore',
+                'Security',
+                'LDAP',
             ].concat(frameworks);
 
             if(of.isCoreLibrary){
@@ -626,9 +736,11 @@ Module{
     property stringList linkerFlags: []
     property stringList defines: []
     property stringList frameworks: []
+    property stringList staticLibraries: []
+    property stringList dynamicLibraries: []
     property stringList addons
 
-    coreIncludePaths: {
+    property stringList coreIncludePaths: {
         var flags = CORE.includes
             .concat(includePaths);
         if(of.isCoreLibrary){
@@ -638,7 +750,7 @@ Module{
         }
     }
 
-    coreStaticLibs: {
+    property stringList coreStaticLibs: {
         if(of.isCoreLibrary){
             return CORE.static_libs;
         }else{
@@ -646,7 +758,7 @@ Module{
         }
     }
 
-    coreSystemLibs: {
+    property stringList coreSystemLibs: {
         if(of.isCoreLibrary){
             return CORE.system_libs
                 .concat(ADDITIONAL_LIBS.libs);
