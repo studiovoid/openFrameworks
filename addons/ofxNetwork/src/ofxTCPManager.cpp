@@ -126,11 +126,11 @@ bool ofxTCPManager::Create()
 	m_closing = false;
 
 	m_hSocket = socket( AF_INET, SOCK_STREAM, IPPROTO_IP);
-    
+    /*
     // DISABLE SIGPIPE ERROR
     int set = 1;
     setsockopt(m_hSocket, SOL_SOCKET, SO_NOSIGPIPE, (void *)&set, sizeof(int));
-
+	*/
 	bool ret = (m_hSocket != INVALID_SOCKET);
 
 	if(!ret) ofxNetworkCheckError();
@@ -161,11 +161,11 @@ bool ofxTCPManager::Bind(unsigned short usPort)
     
     // lose the pesky "Address already in use" error message
     int yes=1;
-    if (setsockopt(m_hSocket,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
+    if (setsockopt(m_hSocket,SOL_SOCKET,SO_REUSEADDR,(const char *)&yes,sizeof(int)) == -1) {
         perror("setsockopt");
         exit(1);
     }
-
+	
 	if (::bind(m_hSocket,(struct sockaddr*)&local,sizeof(local))){
 		ofxNetworkCheckError();
 		return false;
