@@ -129,7 +129,7 @@ bool ofxTCPManager::Create()
     
     // DISABLE SIGPIPE ERROR
     int set = 1;
-    setsockopt(m_hSocket, SOL_SOCKET, SO_NOSIGPIPE, (void *)&set, sizeof(int));
+    //setsockopt(m_hSocket, SOL_SOCKET, SO_NOSIGPIPE, (void *)&set, sizeof(int));
 
 	bool ret = (m_hSocket != INVALID_SOCKET);
 
@@ -161,10 +161,12 @@ bool ofxTCPManager::Bind(unsigned short usPort, bool bReuse)
     
     // lose the pesky "Address already in use" error message
     int yes=1;
+	/*
     if (setsockopt(m_hSocket,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
         perror("setsockopt");
         exit(1);
     }
+	*/
 
 	if (bReuse) {
 		int enable = 1;
